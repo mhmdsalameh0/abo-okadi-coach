@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { ensureBookingTable } from "../../lib/booking-db";
-import { EmailConfigurationError, sendBookingNotification } from "../../lib/mail";
+import { EmailConfigurationError, getEmailEnvironmentStatus, sendBookingNotification } from "../../lib/mail";
 import { prisma } from "../../lib/prisma";
+
+const BOOKING_API_ROUTE = "POST /api/bookings";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -10,6 +12,13 @@ function cleanText(value: unknown) {
 function isValidDate(value: string) {
   const date = new Date(value);
   return !Number.isNaN(date.getTime());
+}
+
+function logBookingRequestContext() {
+  console.info("Booking request received", {
+    route: BOOKING_API_ROUTE,
+    emailEnv: getEmailEnvironmentStatus(),
+  });
 }
 
 function getSafeErrorDetails(error: unknown) {
@@ -41,6 +50,8 @@ function getSafeErrorDetails(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  logBookingRequestContext();
+
   try {
     const body = await request.json();
 
@@ -91,7 +102,9 @@ export async function POST(request: Request) {
     } catch (emailError) {
       const safeDetails = getSafeErrorDetails(emailError);
       console.error("Booking notification email failed", {
+        route: BOOKING_API_ROUTE,
         bookingId: booking.id,
+        emailEnv: getEmailEnvironmentStatus(),
         ...safeDetails,
       });
 
@@ -108,12 +121,20 @@ export async function POST(request: Request) {
       );
     }
 
+    console.info("Booking notification email sent", {
+      route: BOOKING_API_ROUTE,
+      bookingId: booking.id,
+    });
+
     return NextResponse.json(
       { message: "Your booking request was sent successfully.", bookingId: booking.id },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Booking create failed", error);
+    console.error("Booking create failed", {
+      route: BOOKING_API_ROUTE,
+      ...getSafeErrorDetails(error),
+    });
 
     return NextResponse.json(
       { error: "Something went wrong while sending the booking request." },

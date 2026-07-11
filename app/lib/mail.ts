@@ -17,6 +17,14 @@ type EmailConfig = {
   to: string;
 };
 
+export type EmailEnvironmentStatus = {
+  GMAIL_USER: boolean;
+  GMAIL_APP_PASSWORD: boolean;
+  COACH_EMAIL: boolean;
+  GMAIL_SMTP_HOST: boolean;
+  GMAIL_SMTP_PORT: boolean;
+};
+
 export class EmailConfigurationError extends Error {
   missingVariables: string[];
 
@@ -32,6 +40,16 @@ function readRequiredEnv(name: string, options?: { stripSpaces?: boolean }) {
   const value = options?.stripSpaces ? rawValue?.replace(/\s/g, "") : rawValue?.trim();
 
   return value || null;
+}
+
+export function getEmailEnvironmentStatus(): EmailEnvironmentStatus {
+  return {
+    GMAIL_USER: Boolean(readRequiredEnv("GMAIL_USER")),
+    GMAIL_APP_PASSWORD: Boolean(readRequiredEnv("GMAIL_APP_PASSWORD", { stripSpaces: true })),
+    COACH_EMAIL: Boolean(readRequiredEnv("COACH_EMAIL")),
+    GMAIL_SMTP_HOST: Boolean(process.env.GMAIL_SMTP_HOST?.trim()),
+    GMAIL_SMTP_PORT: Boolean(process.env.GMAIL_SMTP_PORT?.trim()),
+  };
 }
 
 function getEmailConfig(): EmailConfig {
@@ -100,4 +118,3 @@ export async function sendBookingNotification(details: BookingEmailDetails) {
     text: lines.join("\n"),
   });
 }
-
