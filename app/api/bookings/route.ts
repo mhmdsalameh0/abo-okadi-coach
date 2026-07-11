@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureBookingTable } from "../../lib/booking-db";
+import { getDatabaseLogContext, getSafeErrorDetails as getSafeDatabaseErrorDetails } from "../../lib/db-log";
 import { EmailConfigurationError, getEmailEnvironmentStatus, sendBookingNotification } from "../../lib/mail";
 import { prisma } from "../../lib/prisma";
 
@@ -18,6 +19,7 @@ function logBookingRequestContext() {
   console.info("Booking request received", {
     route: BOOKING_API_ROUTE,
     emailEnv: getEmailEnvironmentStatus(),
+    ...getDatabaseLogContext(),
   });
 }
 
@@ -78,17 +80,39 @@ export async function POST(request: Request) {
 
     await ensureBookingTable();
 
-    const booking = await prisma.booking.create({
-      data: {
-        name,
-        place,
-        phone,
-        date: new Date(date),
-        time,
-        message,
-        status: "pending",
-      },
+    console.info("Booking insert started", {
+      route: BOOKING_API_ROUTE,
+      ...getDatabaseLogContext(),
     });
+
+    let booking;
+
+    try {
+      booking = await prisma.booking.create({
+        data: {
+          name,
+          place,
+          phone,
+          date: new Date(date),
+          time,
+          message,
+          status: "pending",
+        },
+      });
+
+      console.info("Booking insert succeeded", {
+        route: BOOKING_API_ROUTE,
+        bookingId: booking.id,
+        ...getDatabaseLogContext(),
+      });
+    } catch (databaseError) {
+      console.error("Booking insert failed", {
+        route: BOOKING_API_ROUTE,
+        ...getDatabaseLogContext(),
+        ...getSafeDatabaseErrorDetails(databaseError),
+      });
+      throw databaseError;
+    }
 
     try {
       await sendBookingNotification({
@@ -133,6 +157,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Booking create failed", {
       route: BOOKING_API_ROUTE,
+      ...getDatabaseLogContext(),
       ...getSafeErrorDetails(error),
     });
 

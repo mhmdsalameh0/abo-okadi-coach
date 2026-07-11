@@ -1,3 +1,4 @@
+import { getDatabaseLogContext, getSafeErrorDetails } from "./db-log";
 import { prisma } from "./prisma";
 
 let bookingTableReady: Promise<void> | null = null;
@@ -16,7 +17,16 @@ export function ensureBookingTable() {
       "status" TEXT NOT NULL DEFAULT 'pending',
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
-  `).then(() => undefined);
+  `).then(() => {
+    console.info("Booking table initialization succeeded", getDatabaseLogContext());
+  }).catch((error) => {
+    bookingTableReady = null;
+    console.error("Booking table initialization failed", {
+      ...getDatabaseLogContext(),
+      ...getSafeErrorDetails(error),
+    });
+    throw error;
+  });
 
   return bookingTableReady;
 }

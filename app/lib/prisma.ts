@@ -5,8 +5,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+const databaseUrl = process.env.DATABASE_URL;
+
+if (process.env.NODE_ENV === "production" && !databaseUrl) {
+  throw new Error("DATABASE_URL is required in production.");
+}
+
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/coach_website",
+  connectionString: databaseUrl || "postgresql://postgres:postgres@localhost:5432/coach_website",
 });
 
 export const prisma =

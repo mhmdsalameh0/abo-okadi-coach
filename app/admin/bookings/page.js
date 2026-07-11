@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import BookingActions from "../../components/BookingActions";
 import { prisma } from "../../lib/prisma";
 import { ensureBookingTable } from "../../lib/booking-db";
+import { getDatabaseLogContext, getSafeErrorDetails } from "../../lib/db-log";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,16 +40,34 @@ function getStatusClass(status) {
 
 export default async function AdminBookingsPage() {
   noStore();
-  await ensureBookingTable();
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      status: "pending",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  let bookings;
+
+  try {
+    await ensureBookingTable();
+
+    bookings = await prisma.booking.findMany({
+      where: {
+        status: "pending",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    console.info("Admin bookings query succeeded", {
+      route: "/admin/bookings",
+      count: bookings.length,
+      ...getDatabaseLogContext(),
+    });
+  } catch (error) {
+    console.error("Admin bookings query failed", {
+      route: "/admin/bookings",
+      ...getDatabaseLogContext(),
+      ...getSafeErrorDetails(error),
+    });
+    throw error;
+  }
 
   const bookingRows = bookings.map((booking) => ({
     id: booking.id,
