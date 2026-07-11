@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureBookingTable } from "../../lib/booking-db";
-import { sendBookingNotification } from "../../lib/mail";
+import { EmailConfigurationError, sendBookingNotification } from "../../lib/mail";
 import { prisma } from "../../lib/prisma";
 
 function cleanText(value: unknown) {
@@ -10,6 +10,34 @@ function cleanText(value: unknown) {
 function isValidDate(value: string) {
   const date = new Date(value);
   return !Number.isNaN(date.getTime());
+}
+
+function getSafeErrorDetails(error: unknown) {
+  if (error instanceof EmailConfigurationError) {
+    return {
+      name: error.name,
+      missingVariables: error.missingVariables,
+    };
+  }
+
+  if (error instanceof Error) {
+    const details: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+    };
+
+    const maybeCode = (error as { code?: unknown }).code;
+    const maybeCommand = (error as { command?: unknown }).command;
+    const maybeResponseCode = (error as { responseCode?: unknown }).responseCode;
+
+    if (maybeCode) details.code = maybeCode;
+    if (maybeCommand) details.command = maybeCommand;
+    if (maybeResponseCode) details.responseCode = maybeResponseCode;
+
+    return details;
+  }
+
+  return { message: "Unknown email error" };
 }
 
 export async function POST(request: Request) {
@@ -61,7 +89,23 @@ export async function POST(request: Request) {
         message,
       });
     } catch (emailError) {
-      console.error("Booking notification email failed. Booking was saved; check COACH_EMAIL, GMAIL_USER, and GMAIL_APP_PASSWORD in .env. Gmail requires an App Password, not the normal Gmail password.", emailError);
+      const safeDetails = getSafeErrorDetails(emailError);
+      console.error("Booking notification email failed", {
+        bookingId: booking.id,
+        ...safeDetails,
+      });
+
+      if (emailError instanceof EmailConfigurationError) {
+        return NextResponse.json(
+          { error: "Booking was saved, but email is not configured on the server. Please contact the coach directly." },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Booking was saved, but the email notification could not be sent. Please try again later or contact the coach directly." },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json(

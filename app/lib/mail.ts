@@ -1,4 +1,4 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
 type BookingEmailDetails = {
   name: string;
@@ -9,35 +9,71 @@ type BookingEmailDetails = {
   message: string;
 };
 
-function requireEnv(name: string) {
-  const value = process.env[name];
+type EmailConfig = {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  to: string;
+};
 
-  if (!value) {
-    throw new Error(`${name} is required to send booking emails.`);
+export class EmailConfigurationError extends Error {
+  missingVariables: string[];
+
+  constructor(missingVariables: string[]) {
+    super(`Missing email environment variables: ${missingVariables.join(", ")}`);
+    this.name = "EmailConfigurationError";
+    this.missingVariables = missingVariables;
+  }
+}
+
+function readRequiredEnv(name: string, options?: { stripSpaces?: boolean }) {
+  const rawValue = process.env[name];
+  const value = options?.stripSpaces ? rawValue?.replace(/\s/g, "") : rawValue?.trim();
+
+  return value || null;
+}
+
+function getEmailConfig(): EmailConfig {
+  const missingVariables: string[] = [];
+  const user = readRequiredEnv("GMAIL_USER");
+  const pass = readRequiredEnv("GMAIL_APP_PASSWORD", { stripSpaces: true });
+  const to = readRequiredEnv("COACH_EMAIL");
+
+  if (!user) missingVariables.push("GMAIL_USER");
+  if (!pass) missingVariables.push("GMAIL_APP_PASSWORD");
+  if (!to) missingVariables.push("COACH_EMAIL");
+
+  if (!user || !pass || !to) {
+    throw new EmailConfigurationError(missingVariables);
   }
 
-  return value;
+  const host = process.env.GMAIL_SMTP_HOST?.trim() || "smtp.gmail.com";
+  const port = Number(process.env.GMAIL_SMTP_PORT || "465");
+
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error("GMAIL_SMTP_PORT must be a positive number.");
+  }
+
+  return {
+    host,
+    port,
+    user,
+    pass,
+    to,
+  };
 }
 
 export async function sendBookingNotification(details: BookingEmailDetails) {
-  const host = process.env.GMAIL_SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.GMAIL_SMTP_PORT || "465");
-  const user = requireEnv("GMAIL_USER");
-  const pass = requireEnv("GMAIL_APP_PASSWORD").replace(/\s/g, "");
-  const to = requireEnv("COACH_EMAIL");
-
-  console.log("Gmail auth debug", {
-    GMAIL_USER: process.env.GMAIL_USER,
-    GMAIL_APP_PASSWORD_LENGTH: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "").length ?? 0,
-  });
+  const { host, port, user, pass, to } = getEmailConfig();
 
   const transporter = nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, ""),
+      user,
+      pass,
     },
   });
 
@@ -64,3 +100,4 @@ export async function sendBookingNotification(details: BookingEmailDetails) {
     text: lines.join("\n"),
   });
 }
+

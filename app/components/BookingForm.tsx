@@ -43,16 +43,18 @@ export default function BookingForm() {
         body: JSON.stringify(formData),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
+      const errorMessage = typeof result.error === "string" ? result.error : "The booking email could not be sent. Please try again.";
+      const successMessage = typeof result.message === "string" ? result.message : "Your booking request was sent successfully.";
 
       if (!response.ok) {
         setStatus("error");
-        setFeedback(result.error || "Please check the form and try again.");
+        setFeedback(errorMessage);
         return;
       }
 
       setStatus("success");
-      setFeedback(result.message || "Your booking request was sent successfully.");
+      setFeedback(successMessage);
       setFormData(emptyForm);
     } catch {
       setStatus("error");
@@ -147,5 +149,6 @@ export default function BookingForm() {
     </form>
   );
 }
+
 
 
