@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import BookingActions from "../../components/BookingActions";
 import { prisma } from "../../lib/prisma";
 import { ensureBookingTable } from "../../lib/booking-db";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("en", {
@@ -36,6 +38,7 @@ function getStatusClass(status) {
 }
 
 export default async function AdminBookingsPage() {
+  noStore();
   await ensureBookingTable();
 
   const bookings = await prisma.booking.findMany({
