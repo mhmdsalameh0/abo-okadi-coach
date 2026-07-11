@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
-import { prisma } from "../../lib/prisma";
+import { NextResponse } from "next/server";
+import { ensureBookingTable } from "../../lib/booking-db";
 import { sendBookingNotification } from "../../lib/mail";
+import { prisma } from "../../lib/prisma";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    await ensureBookingTable();
 
     const booking = await prisma.booking.create({
       data: {
@@ -76,6 +79,8 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  await ensureBookingTable();
+
   const bookings = await prisma.booking.findMany({
     where: {
       status: "pending",
@@ -87,4 +92,3 @@ export async function GET() {
 
   return NextResponse.json({ bookings });
 }
-

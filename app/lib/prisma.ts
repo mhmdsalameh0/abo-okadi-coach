@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL || "file:./dev.db",
+  url: process.env.DATABASE_URL || (process.env.VERCEL ? "file:/tmp/coach-bookings.db" : "file:./dev.db"),
 });
 
 export const prisma =

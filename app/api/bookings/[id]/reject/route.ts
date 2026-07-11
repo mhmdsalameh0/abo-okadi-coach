@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
+import { ensureBookingTable } from "../../../../lib/booking-db";
 
 type RouteContext = {
   params: Promise<{
@@ -21,6 +22,8 @@ export async function PATCH(_request: Request, context: RouteContext) {
   }
 
   try {
+    await ensureBookingTable();
+
     const result = await prisma.booking.updateMany({
       where: { id, status: "pending" },
       data: { status: "rejected" },
@@ -41,3 +44,5 @@ export async function PATCH(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Could not reject booking." }, { status: 500 });
   }
 }
+
+

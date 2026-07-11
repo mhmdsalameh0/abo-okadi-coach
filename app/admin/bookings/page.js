@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BookingActions from "../../components/BookingActions";
 import { prisma } from "../../lib/prisma";
+import { ensureBookingTable } from "../../lib/booking-db";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,8 @@ function getStatusClass(status) {
 }
 
 export default async function AdminBookingsPage() {
+  await ensureBookingTable();
+
   const bookings = await prisma.booking.findMany({
     where: {
       status: "pending",
@@ -155,6 +158,9 @@ export default async function AdminBookingsPage() {
     </main>
   );
 }
+
+
+
 
 
 
